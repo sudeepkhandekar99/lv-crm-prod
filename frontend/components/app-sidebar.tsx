@@ -29,7 +29,7 @@ const data = {
         },
         {
           title: "Disabled Products",
-          url: "/deleted-products",
+          url: "/disabled-products",
           isActive: false,
         },
       ],
