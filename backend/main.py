@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -96,9 +96,18 @@ class ProductUpdate(ProductBase):
 
 # API Endpoints
 @app.get("/products", response_model=List[ProductResponse])
-def get_all_products(db: Session = Depends(get_db)):
-    # Fetch all products sorted by 'id' in ascending order
-    products = db.query(Product).order_by(asc(Product.id)).all()
+def get_all_products(
+    limit: int = Query(10, description="Number of products per page", ge=1), 
+    offset: int = Query(0, description="Offset for pagination", ge=0),
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch products with pagination.
+    - limit: max number of products to return
+    - offset: skip this many products
+    """
+    # Query the database with limit and offset
+    products = db.query(Product).order_by(asc(Product.id)).offset(offset).limit(limit).all()
     return products
 
 @app.get("/products/{product_id}", response_model=ProductResponse)
