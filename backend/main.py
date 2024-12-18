@@ -189,3 +189,59 @@ def add_product(product: ProductCreate, db: Session = Depends(get_db)):
     db.refresh(new_product)  # Retrieve the new row
 
     return {"message": "Product added successfully", "id": new_product.id}
+
+
+@app.get("/distinct-categories", response_model=dict)
+def get_distinct_categories(db: Session = Depends(get_db)):
+    """
+    Fetch distinct values for main_cat, sub_cat, and brand.
+    """
+    try:
+        # Query distinct values
+        distinct_main_cat = db.query(Product.main_cat).distinct().all()
+        distinct_sub_cat = db.query(Product.sub_cat).distinct().all()
+        distinct_brand = db.query(Product.brand).distinct().all()
+
+        # Convert tuples to a flat list
+        main_cat_list = sorted([item[0] for item in distinct_main_cat if item[0] is not None])
+        sub_cat_list = sorted([item[0] for item in distinct_sub_cat if item[0] is not None])
+        brand_list = sorted([item[0] for item in distinct_brand if item[0] is not None])
+
+        return {
+            "main_categories": main_cat_list,
+            "sub_categories": sub_cat_list,
+            "brands": brand_list,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@app.get("/search-products", response_model=List[ProductResponse])
+def search_products(
+    brand: Optional[str] = None,
+    sub_cat: Optional[str] = None,
+    main_cat: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Search products based on optional filters: brand, sub_cat, and main_cat.
+    If a filter is not provided, it will be ignored in the query.
+    """
+    try:
+        query = db.query(Product)
+
+        # Apply filters if they are provided
+        if brand:
+            query = query.filter(Product.brand == brand)
+        if sub_cat:
+            query = query.filter(Product.sub_cat == sub_cat)
+        if main_cat:
+            query = query.filter(Product.main_cat == main_cat)
+
+        # Fetch the results
+        products = query.order_by(asc(Product.id)).all()
+
+        return products
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+

@@ -10,6 +10,16 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -20,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { Product, columns } from "../../components/columns";
 import { DataTable } from "../../components/data-table";
+
 
 async function getData(limit: number = 15, offset: number = 0): Promise<Product[]> {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -71,12 +82,39 @@ export default function Page() {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Active Products</BreadcrumbPage>
+                  <BreadcrumbPage>All Products</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
           </div>
         </header>
+        <div className="container mx-auto pt-10 ">
+          <p>Search</p>
+        </div>
+        <div className="flex container mx-auto pt-2 gap-2">
+          <Select>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Theme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="light">Light</SelectItem>
+              <SelectItem value="dark">Dark</SelectItem>
+              <SelectItem value="system">System</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Theme" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="light">Light</SelectItem>
+              <SelectItem value="dark">Dark</SelectItem>
+              <SelectItem value="system">System</SelectItem>
+            </SelectContent>
+          </Select>
+
+        </div>
+
         <div className="container mx-auto py-10">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold">

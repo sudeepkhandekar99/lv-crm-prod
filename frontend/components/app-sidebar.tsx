@@ -23,13 +23,8 @@ const data = {
       url: "#",
       items: [
         {
-          title: "Active Products",
+          title: "All Products",
           url: "/products",
-          isActive: false,
-        },
-        {
-          title: "Disabled Products",
-          url: "/disabled-products",
           isActive: false,
         },
         {
