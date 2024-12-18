@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
+import { Toaster } from "@/components/ui/toaster";
+
 
 
 export const metadata: Metadata = {
@@ -19,6 +21,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {children}
+        <Toaster />
       </body>
     </html>
   );

@@ -32,6 +32,11 @@ const data = {
           url: "/disabled-products",
           isActive: false,
         },
+        {
+          title: "Add Product",
+          url: "/add-product",
+          isActive: false,
+        },
       ],
     },
   ],

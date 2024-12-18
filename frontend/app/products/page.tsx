@@ -37,19 +37,19 @@ export default function Page() {
   const [offset, setOffset] = useState<number>(0);
   const limit = 15;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const result = await getData(limit, offset);
-        setData(result);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const result = await getData(limit, offset);
+      setData(result);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, [offset]);
 
@@ -89,29 +89,31 @@ export default function Page() {
           {/* Skeleton Table */}
           {loading ? (
             <div className="border border-gray-200 rounded-md">
-              <div className="grid grid-cols-5 gap-2 p-4 bg-gray-100">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
+              <div className="grid grid-cols-6 gap-2 p-4 bg-gray-100">
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-2 w-full" />
               </div>
-              {[...Array(5)].map((_, i) => (
+              {[...Array(15)].map((_, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-5 gap-2 p-4 border-b border-gray-200"
+                  className="grid grid-cols-6 gap-2 p-4 border-b border-gray-200"
                 >
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-2 w-full" />
+                  <Skeleton className="h-2 w-full" />
+                  <Skeleton className="h-2 w-full" />
+                  <Skeleton className="h-2 w-full" />
+                  <Skeleton className="h-2 w-full" />
+                  <Skeleton className="h-2 w-full" />
                 </div>
               ))}
             </div>
           ) : (
-            // Render the DataTable when data is loaded
-            <DataTable columns={columns} data={data} />
+            // Pass fetchData as a prop to trigger re-fetching after update
+            <DataTable columns={columns} data={data} onUpdate={fetchData} />
           )}
 
           <div className="flex items-center justify-end space-x-2 py-4">
