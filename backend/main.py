@@ -221,11 +221,14 @@ def search_products(
     brand: Optional[str] = None,
     sub_cat: Optional[str] = None,
     main_cat: Optional[str] = None,
+    limit: int = Query(10, description="Number of products per page", ge=1),
+    offset: int = Query(0, description="Number of products to skip for pagination", ge=0),
     db: Session = Depends(get_db),
 ):
     """
     Search products based on optional filters: brand, sub_cat, and main_cat.
     If a filter is not provided, it will be ignored in the query.
+    Pagination is implemented using limit and offset.
     """
     try:
         query = db.query(Product)
@@ -238,8 +241,8 @@ def search_products(
         if main_cat:
             query = query.filter(Product.main_cat == main_cat)
 
-        # Fetch the results
-        products = query.order_by(asc(Product.id)).all()
+        # Apply sorting and pagination
+        products = query.order_by(asc(Product.id)).offset(offset).limit(limit).all()
 
         return products
     except Exception as e:

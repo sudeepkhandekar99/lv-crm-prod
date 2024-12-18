@@ -17,8 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-
+} from "@/components/ui/select";
 
 import { Separator } from "@/components/ui/separator";
 import {
@@ -30,7 +29,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { Product, columns } from "../../components/columns";
 import { DataTable } from "../../components/data-table";
-
 
 async function getData(limit: number = 15, offset: number = 0): Promise<Product[]> {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -47,6 +45,11 @@ export default function Page() {
   const [loading, setLoading] = useState<boolean>(true);
   const [offset, setOffset] = useState<number>(0);
   const limit = 15;
+  const [dropDownData, setDropDownData] = useState<any>({
+    main_categories: [],
+    sub_categories: [],
+    brands: [],
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -60,8 +63,31 @@ export default function Page() {
     }
   };
 
+  const fetchDropDownData = () => {
+    setLoading(true);
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+    fetch(`${baseUrl}/distinct-categories`, { headers: { "accept": "application/json" } })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to fetch dropdown data");
+        }
+        return response.json();
+      })
+      .then((result) => {
+        setDropDownData(result);
+      })
+      .catch((error) => {
+        console.error("Error fetching dropdown data:", error);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
   useEffect(() => {
     fetchData();
+    fetchDropDownData();
   }, [offset]);
 
   const from = offset + 1; // Starting product number
@@ -88,31 +114,49 @@ export default function Page() {
             </Breadcrumb>
           </div>
         </header>
-        <div className="container mx-auto pt-10 ">
+        <div className="container mx-auto pt-10">
           <p>Search</p>
         </div>
         <div className="flex container mx-auto pt-2 gap-2">
+          {/* Main Categories Dropdown */}
           <Select>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Theme" />
+              <SelectValue placeholder="Main Categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="light">Light</SelectItem>
-              <SelectItem value="dark">Dark</SelectItem>
-              <SelectItem value="system">System</SelectItem>
+              {dropDownData.main_categories.map((category: string) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+          {/* Sub Categories Dropdown */}
           <Select>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Theme" />
+              <SelectValue placeholder="Sub Categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="light">Light</SelectItem>
-              <SelectItem value="dark">Dark</SelectItem>
-              <SelectItem value="system">System</SelectItem>
+              {dropDownData.sub_categories.map((subCategory: string) => (
+                <SelectItem key={subCategory} value={subCategory}>
+                  {subCategory}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-
+          {/* Brands Dropdown */}
+          <Select>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Brands" />
+            </SelectTrigger>
+            <SelectContent>
+              {dropDownData.brands.map((brand: string) => (
+                <SelectItem key={brand} value={brand}>
+                  {brand}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="container mx-auto py-10">
