@@ -245,3 +245,24 @@ def search_products(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+
+@app.get("/search-by-model", response_model=ProductResponse)
+def search_by_model(
+    model: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Search for a product by its model and return the first matching result.
+    """
+    try:
+        # Query the database for the first product matching the model
+        product = db.query(Product).filter(Product.model == model).first()
+
+        # Handle the case where no product is found
+        if not product:
+            raise HTTPException(status_code=404, detail="Product with the specified model not found")
+
+        return product
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
