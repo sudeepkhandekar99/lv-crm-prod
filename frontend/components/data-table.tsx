@@ -45,7 +45,7 @@ import { useEffect, useState } from "react";
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
-  onUpdate: () => void; // Callback to refresh data after update
+  onUpdate: () => void; // Callback to refresh data after update or delete
 }
 
 export function DataTable<TData, TValue>({
@@ -161,6 +161,42 @@ export function DataTable<TData, TValue>({
     }
   };
 
+  const onDelete = async (id: number) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/products/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            accept: "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete product");
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "Product Deleted",
+        description: result.detail,
+        duration: 3000,
+      });
+
+      onUpdate(); // Refresh the data in the table
+    } catch (error) {
+      console.error("Error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete product.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
+
   return (
     <div>
       <div className="rounded-md border">
@@ -191,58 +227,68 @@ export function DataTable<TData, TValue>({
                     </TableCell>
                   ))}
                   <TableCell>
-                    <Sheet>
-                      <SheetTrigger
-                        onClick={() => setSelectedRow(row.original)} // Set the selected row's data
+                    <div className="flex space-x-2">
+                      <Sheet>
+                        <SheetTrigger
+                          onClick={() => setSelectedRow(row.original)} // Set the selected row's data
+                        >
+                          Edit
+                        </SheetTrigger>
+                        <SheetContent>
+                          <SheetHeader>
+                            <SheetTitle>Edit Product</SheetTitle>
+                            <SheetDescription>
+                              Modify the selected product's details below.
+                            </SheetDescription>
+                          </SheetHeader>
+                          {selectedRow && (
+                            <Form {...form}>
+                              <form
+                                onSubmit={handleSubmit(onSubmit)}
+                                className="grid grid-cols-1 gap-4 md:grid-cols-2"
+                              >
+                                {Object.keys(formSchema.shape).map((key) => (
+                                  <FormField
+                                    key={key}
+                                    control={control}
+                                    name={key as keyof typeof formSchema.shape}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>
+                                          {key
+                                            .replace(/_/g, " ")
+                                            .toLowerCase()
+                                            .replace(/\b\w/g, (char) =>
+                                              char.toUpperCase()
+                                            )}
+                                        </FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            placeholder={`Enter ${key}`}
+                                            {...field}
+                                            value={field.value ?? ""} // Ensure value is not null
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                ))}
+                                <Button type="submit">Update</Button>
+                              </form>
+                            </Form>
+                          )}
+                        </SheetContent>
+                      </Sheet>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                  <Button
+                        variant="outline"
+                        onClick={() => onDelete((row.original as any).id)}
                       >
-                        Edit
-                      </SheetTrigger>
-                      <SheetContent>
-                        <SheetHeader>
-                          <SheetTitle>Edit Product</SheetTitle>
-                          <SheetDescription>
-                            Modify the selected product's details below.
-                          </SheetDescription>
-                        </SheetHeader>
-                        {selectedRow && (
-                          <Form {...form}>
-                            <form
-                              onSubmit={handleSubmit(onSubmit)}
-                              className="grid grid-cols-1 gap-4 md:grid-cols-2"
-                            >
-                              {Object.keys(formSchema.shape).map((key) => (
-                                <FormField
-                                  key={key}
-                                  control={control}
-                                  name={key as keyof typeof formSchema.shape}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>
-                                        {key
-                                          .replace(/_/g, " ")
-                                          .toLowerCase()
-                                          .replace(/\w/g, (char) =>
-                                            char.toUpperCase()
-                                          )}
-                                      </FormLabel>
-                                      <FormControl>
-                                        <Input
-                                          placeholder={`Enter ${key}`}
-                                          {...field}
-                                          value={field.value ?? ""} // Ensure value is not null
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              ))}
-                              <Button type="submit">Update</Button>
-                            </form>
-                          </Form>
-                        )}
-                      </SheetContent>
-                    </Sheet>
+                        Delete
+                      </Button>
                   </TableCell>
                 </TableRow>
               ))

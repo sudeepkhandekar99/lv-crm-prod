@@ -29,14 +29,46 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { Product, columns } from "../../components/columns";
 import { DataTable } from "../../components/data-table";
+import { Input } from "@/components/ui/input";
 
 async function getData(limit: number = 15, offset: number = 0): Promise<Product[]> {
   const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   const response = await fetch(
     `${baseUrl}/products?limit=${limit}&offset=${offset}`,
-    { headers: { "accept": "application/json" } }
+    { headers: { accept: "application/json" } }
   );
   if (!response.ok) throw new Error("Failed to fetch products");
+  return await response.json();
+}
+
+async function searchProducts(
+  brand?: string,
+  sub_cat?: string,
+  main_cat?: string,
+  limit: number = 15,
+  offset: number = 0
+): Promise<Product[]> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const queryParams = new URLSearchParams();
+  if (brand) queryParams.append("brand", brand);
+  if (sub_cat) queryParams.append("sub_cat", sub_cat);
+  if (main_cat) queryParams.append("main_cat", main_cat);
+  queryParams.append("limit", limit.toString());
+  queryParams.append("offset", offset.toString());
+
+  const response = await fetch(`${baseUrl}/search-products?${queryParams.toString()}`, {
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) throw new Error("Failed to search products");
+  return await response.json();
+}
+
+async function searchByModel(model: string): Promise<Product[]> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const response = await fetch(`${baseUrl}/search-by-model?model=${model}`, {
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) return [];
   return await response.json();
 }
 
@@ -44,18 +76,38 @@ export default function Page() {
   const [data, setData] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [offset, setOffset] = useState<number>(0);
-  const limit = 15;
   const [dropDownData, setDropDownData] = useState<any>({
     main_categories: [],
     sub_categories: [],
     brands: [],
   });
+  const [filters, setFilters] = useState<{
+    brand?: string;
+    sub_cat?: string;
+    main_cat?: string;
+  }>({});
+  const [searchModel, setSearchModel] = useState<string>("");
+
+  const limit = 15;
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const result = await getData(limit, offset);
-      setData(result);
+      let result;
+      if (searchModel) {
+        result = await searchByModel(searchModel);
+      } else if (filters.brand || filters.sub_cat || filters.main_cat) {
+        result = await searchProducts(
+          filters.brand,
+          filters.sub_cat,
+          filters.main_cat,
+          limit,
+          offset
+        );
+      } else {
+        result = await getData(limit, offset);
+      }
+      setData(Array.isArray(result) ? result : [result]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -67,7 +119,7 @@ export default function Page() {
     setLoading(true);
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-    fetch(`${baseUrl}/distinct-categories`, { headers: { "accept": "application/json" } })
+    fetch(`${baseUrl}/distinct-categories`, { headers: { accept: "application/json" } })
       .then((response) => {
         if (!response.ok) {
           throw new Error("Failed to fetch dropdown data");
@@ -87,11 +139,35 @@ export default function Page() {
 
   useEffect(() => {
     fetchData();
-    fetchDropDownData();
-  }, [offset]);
+  }, [offset, filters, searchModel]);
 
-  const from = offset + 1; // Starting product number
-  const to = offset + (data.length || 0); // Ending product number
+  useEffect(() => {
+    fetchDropDownData();
+  }, []);
+
+  const from = offset + 1;
+  const to = offset + (data.length || 0);
+
+  const handleFilterChange = (filterKey: string, value: string | undefined) => {
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [filterKey]: value || undefined,
+    }));
+    setOffset(0); // Reset pagination when a filter is applied
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setSearchModel("");
+    setOffset(0);
+    window.location.reload(); // Refresh the page to reset the state completely
+  };
+
+  const handleSearchModelChange = (value: string) => {
+    setSearchModel(value);
+    setFilters({}); // Clear all filters when searching by model
+    setOffset(0); // Reset pagination
+  };
 
   return (
     <SidebarProvider>
@@ -118,8 +194,16 @@ export default function Page() {
           <p>Search</p>
         </div>
         <div className="flex container mx-auto pt-2 gap-2">
+          <Input
+            placeholder="Search by Model"
+            value={searchModel}
+            onChange={(e) => handleSearchModelChange(e.target.value)}
+            className="w-2/3"
+          />
           {/* Main Categories Dropdown */}
-          <Select>
+          <Select
+            onValueChange={(value) => handleFilterChange("main_cat", value)}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Main Categories" />
             </SelectTrigger>
@@ -132,7 +216,9 @@ export default function Page() {
             </SelectContent>
           </Select>
           {/* Sub Categories Dropdown */}
-          <Select>
+          <Select
+            onValueChange={(value) => handleFilterChange("sub_cat", value)}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sub Categories" />
             </SelectTrigger>
@@ -145,7 +231,9 @@ export default function Page() {
             </SelectContent>
           </Select>
           {/* Brands Dropdown */}
-          <Select>
+          <Select
+            onValueChange={(value) => handleFilterChange("brand", value)}
+          >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Brands" />
             </SelectTrigger>
@@ -157,6 +245,13 @@ export default function Page() {
               ))}
             </SelectContent>
           </Select>
+          {/* Clear Filters Button */}
+          <button
+            onClick={handleClearFilters}
+            className="px-4 bg-gray-200 rounded hover:bg-red-200"
+          >
+            Clear
+          </button>
         </div>
 
         <div className="container mx-auto py-10">
@@ -168,33 +263,14 @@ export default function Page() {
             </h2>
           </div>
 
-          {/* Skeleton Table */}
           {loading ? (
             <div className="border border-gray-200 rounded-md">
-              <div className="grid grid-cols-6 gap-2 p-4 bg-gray-100">
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-2 w-full" />
-              </div>
+              <Skeleton className="h-2 w-full" />
               {[...Array(15)].map((_, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-6 gap-2 p-4 border-b border-gray-200"
-                >
-                  <Skeleton className="h-2 w-full" />
-                  <Skeleton className="h-2 w-full" />
-                  <Skeleton className="h-2 w-full" />
-                  <Skeleton className="h-2 w-full" />
-                  <Skeleton className="h-2 w-full" />
-                  <Skeleton className="h-2 w-full" />
-                </div>
+                <Skeleton key={i} className="h-2 w-full" />
               ))}
             </div>
           ) : (
-            // Pass fetchData as a prop to trigger re-fetching after update
             <DataTable columns={columns} data={data} onUpdate={fetchData} />
           )}
 
