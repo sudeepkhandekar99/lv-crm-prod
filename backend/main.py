@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -10,13 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import asc  # Import for ascending order
 from dotenv import load_dotenv
 import os
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Access the DATABASE_URL variable
-DATABASE_URL = os.getenv("DATABASE_URL")
-
+import boto3
+from botocore.exceptions import ClientError
+from datetime import datetime
+from urllib.parse import urlparse
+import csv
+import requests
 
 app = FastAPI()
 
@@ -27,6 +26,25 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
+)
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Access the DATABASE_URL variable
+DATABASE_URL = os.getenv("DATABASE_URL")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.getenv("AWS_REGION")
+
+# AWS S3 Configuration
+AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
+AWS_REGION = os.getenv("AWS_REGION")
+S3_CLIENT = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name=AWS_REGION
 )
 
 @app.get("/")
@@ -89,7 +107,7 @@ class ProductResponse(ProductBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ProductUpdate(ProductBase):
     pass
@@ -269,3 +287,147 @@ def search_by_model(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+
+@app.post("/upload-product-image")
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        # Generate a unique file key using timestamp
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        file_key = f"product_images/{timestamp}_{file.filename}"
+
+        # Upload the file to S3
+        S3_CLIENT.upload_fileobj(
+            file.file, AWS_BUCKET_NAME, file_key,
+            ExtraArgs={"ContentType": file.content_type}
+        )
+        # Generate the file's URL
+        file_url = f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{file_key}"
+
+        return {"message": "Image uploaded successfully", "url": file_url}
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload image: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+
+@app.delete("/delete-image")
+async def delete_image(file_url: str = Query(...)):
+    try:
+        # Extract the file key (path after the bucket name) from the URL
+        parsed_url = urlparse(file_url)
+        file_key = parsed_url.path.lstrip("/")  # Remove leading "/"
+
+        # Delete the file from S3
+        S3_CLIENT.delete_object(Bucket=AWS_BUCKET_NAME, Key=file_key)
+        return {"message": f"Image '{file_key}' deleted successfully"}
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete image: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+
+@app.put("/process-links")
+async def process_links():
+    session = SessionLocal()
+    updated_rows = []
+
+    try:
+        products = session.query(Product).all()
+        if not products:
+            return {"message": "No products found in the database"}
+
+        for product in products:
+            updated = False
+
+            # Process image link
+            if product.images:
+                new_image_url = download_and_upload_to_s3(product.images, "images")
+                if new_image_url and new_image_url != product.images:
+                    print(f"Updated image URL for product ID {product.id}")
+                    product.images = new_image_url
+                    updated = True
+
+            # Process PDF link
+            if product.pdf:
+                new_pdf_url = download_and_upload_to_s3(product.pdf, "pdfs")
+                if new_pdf_url and new_pdf_url != product.pdf:
+                    print(f"Updated PDF URL for product ID {product.id}")
+                    product.pdf = new_pdf_url
+                    updated = True
+
+            if updated:
+                updated_rows.append(product)
+
+        # Commit changes to the database
+        session.commit()
+
+        # Save updated rows to a CSV file
+        csv_file_path = save_to_csv(updated_rows)
+        return {"message": "Links processed successfully", "csv_file": csv_file_path}
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Error processing links: {e}")
+    finally:
+        session.close()
+
+
+def download_and_upload_to_s3(link, folder):
+    try:
+        # Extract Google Drive file ID
+        if "drive.google.com" in link:
+            file_id = extract_google_drive_id(link)
+            if not file_id:
+                return None
+            download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        else:
+            download_url = link
+
+        # Download the file
+        response = requests.get(download_url, stream=True)
+        if response.status_code != 200:
+            return None
+
+        # Generate a unique file key using current timestamp
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        _, file_extension = os.path.splitext(link)
+        file_key = f"{folder}/{timestamp}{file_extension}"
+
+        # Upload to S3 without ACL
+        S3_CLIENT.upload_fileobj(
+            response.raw,
+            AWS_BUCKET_NAME,
+            file_key,
+            ExtraArgs={"ContentType": response.headers.get("Content-Type", "application/octet-stream")}
+        )
+
+        # Return the S3 URL
+        return f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{file_key}"
+
+    except Exception as e:
+        print(f"Failed to process link: {link}. Error: {e}")
+        return None
+
+
+def extract_google_drive_id(link):
+    try:
+        if "id=" in link:
+            return link.split("id=")[1].split("&")[0]
+        elif "/d/" in link:
+            return link.split("/d/")[1].split("/")[0]
+        return None
+    except Exception as e:
+        print(f"Error extracting file ID from link: {link}. Error: {e}")
+        return None
+
+
+def save_to_csv(rows):
+    csv_file_path = "updated_products.csv"
+    with open(csv_file_path, mode="w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        # Write header
+        writer.writerow(["id", "code", "main_cat", "sub_cat", "brand", "model", "housing_size", "function", "range", "output", "voltage", "connection", "material", "images", "pdf"])
+        # Write rows
+        for row in rows:
+            writer.writerow([row.id, row.code, row.main_cat, row.sub_cat, row.brand, row.model, row.housing_size, row.function, row.range, row.output, row.voltage, row.connection, row.material, row.images, row.pdf])
+    return csv_file_path
