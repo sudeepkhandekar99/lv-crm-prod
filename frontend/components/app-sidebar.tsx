@@ -32,6 +32,11 @@ const data = {
           url: "/add-product",
           isActive: false,
         },
+        {
+          title: "Upload File",
+          url: "/upload-file",
+          isActive: false,
+        },
       ],
     },
   ],
