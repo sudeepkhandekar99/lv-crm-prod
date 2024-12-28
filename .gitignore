@@ -30,9 +30,6 @@
 /frontend/yarn-error.log*
 /frontend/.pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-/frontend/.env*
-
 # vercel
 /frontend/.vercel
 
@@ -40,4 +37,4 @@
 /frontend/*.tsbuildinfo
 /frontend/next-env.d.ts
 backend/__pycache__/*
-backend/.env
+backend/.env*
