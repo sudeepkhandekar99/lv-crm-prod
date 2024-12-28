@@ -29,3 +29,6 @@ tzdata==2024.2
 urllib3==2.2.3
 uvicorn==0.32.1
 boto3==1.35.33
+requests==2.31.0
+requests-oauth==0.4.1
+requests-oauthlib==2.0.0
