@@ -7,7 +7,8 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import asc  # Import for ascending order
+from sqlalchemy import asc ,or_, func, and_
+
 from dotenv import load_dotenv
 import os
 import boto3
@@ -74,6 +75,27 @@ class Product(Base):
     material = Column(String(255), nullable=True)
     images = Column(String(255), nullable=True)
     pdf = Column(String(255), nullable=True)
+
+
+class ProductResponse(BaseModel):
+    id: int
+    code: Optional[str]
+    main_cat: Optional[str]
+    sub_cat: Optional[str]
+    brand: Optional[str]
+    model: Optional[str]
+    housing_size: Optional[str]
+    function: Optional[str]
+    range: Optional[str]
+    output: Optional[str]
+    voltage: Optional[str]
+    connection: Optional[str]
+    material: Optional[str]
+    images: Optional[str]
+    pdf: Optional[str]
+
+    class Config:
+        from_attributes = True
 
 # Create tables (only needed once)
 Base.metadata.create_all(bind=engine)
@@ -431,3 +453,106 @@ def save_to_csv(rows):
         for row in rows:
             writer.writerow([row.id, row.code, row.main_cat, row.sub_cat, row.brand, row.model, row.housing_size, row.function, row.range, row.output, row.voltage, row.connection, row.material, row.images, row.pdf])
     return csv_file_path
+
+
+@app.get("/distinct-values", response_model=dict)
+def get_distinct_values(db: Session = Depends(get_db)):
+    """
+    Fetch distinct values for all fields in the Product table.
+    """
+    try:
+        # Query distinct values for each field
+        distinct_values = {
+            "code": sorted([item[0] for item in db.query(Product.code).distinct().all() if item[0] is not None]),
+            "main_categories": sorted([item[0] for item in db.query(Product.main_cat).distinct().all() if item[0] is not None]),
+            "sub_categories": sorted([item[0] for item in db.query(Product.sub_cat).distinct().all() if item[0] is not None]),
+            "brands": sorted([item[0] for item in db.query(Product.brand).distinct().all() if item[0] is not None]),
+            "models": sorted([item[0] for item in db.query(Product.model).distinct().all() if item[0] is not None]),
+            "housing_sizes": sorted([item[0] for item in db.query(Product.housing_size).distinct().all() if item[0] is not None]),
+            "functions": sorted([item[0] for item in db.query(Product.function).distinct().all() if item[0] is not None]),
+            "ranges": sorted([item[0] for item in db.query(Product.range).distinct().all() if item[0] is not None]),
+            "outputs": sorted([item[0] for item in db.query(Product.output).distinct().all() if item[0] is not None]),
+            "voltages": sorted([item[0] for item in db.query(Product.voltage).distinct().all() if item[0] is not None]),
+            "connections": sorted([item[0] for item in db.query(Product.connection).distinct().all() if item[0] is not None]),
+            "materials": sorted([item[0] for item in db.query(Product.material).distinct().all() if item[0] is not None]),
+        }
+
+        return distinct_values
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
+
+@app.get("/search-products-extended", response_model=dict)
+def search_products(
+    code: Optional[str] = None,
+    main_cat: Optional[str] = None,
+    sub_cat: Optional[str] = None,
+    brand: Optional[str] = None,
+    model: Optional[str] = None,
+    housing_size: Optional[str] = None,
+    function: Optional[str] = None,
+    range: Optional[str] = None,
+    output: Optional[str] = None,
+    voltage: Optional[str] = None,
+    connection: Optional[str] = None,
+    material: Optional[str] = None,
+    page: int = Query(1, description="Page number for pagination", ge=1),
+    db: Session = Depends(get_db),
+):
+    """
+    Search products with optional filters, and return paginated results.
+    """
+    try:
+        PAGE_SIZE = 16  # Items per page
+        offset = (page - 1) * PAGE_SIZE
+
+        query = db.query(Product)
+
+        # Apply dynamic filters
+        filters = []
+        if code:
+            filters.append(func.lower(Product.code).like(f"%{code.lower()}%"))
+        if main_cat:
+            filters.append(func.lower(Product.main_cat).like(f"%{main_cat.lower()}%"))
+        if sub_cat:
+            filters.append(func.lower(Product.sub_cat).like(f"%{sub_cat.lower()}%"))
+        if brand:
+            filters.append(func.lower(Product.brand).like(f"%{brand.lower()}%"))
+        if model:
+            filters.append(func.lower(Product.model).like(f"%{model.lower()}%"))
+        if housing_size:
+            filters.append(func.lower(Product.housing_size).like(f"%{housing_size.lower()}%"))
+        if function:
+            filters.append(func.lower(Product.function).like(f"%{function.lower()}%"))
+        if range:
+            filters.append(func.lower(Product.range).like(f"%{range.lower()}%"))
+        if output:
+            filters.append(func.lower(Product.output).like(f"%{output.lower()}%"))
+        if voltage:
+            filters.append(func.lower(Product.voltage).like(f"%{voltage.lower()}%"))
+        if connection:
+            filters.append(func.lower(Product.connection).like(f"%{connection.lower()}%"))
+        if material:
+            filters.append(func.lower(Product.material).like(f"%{material.lower()}%"))
+
+        if filters:
+            query = query.filter(and_(*filters))
+
+        # Pagination and sorting
+        total_items = query.count()
+        products = query.order_by(asc(Product.id)).offset(offset).limit(PAGE_SIZE).all()
+
+        # Convert SQLAlchemy objects to Pydantic models
+        product_responses = [ProductResponse.from_orm(product) for product in products]
+
+        return {
+            "page": page,
+            "page_size": PAGE_SIZE,
+            "total_items": total_items,
+            "total_pages": (total_items + PAGE_SIZE - 1) // PAGE_SIZE,
+            "products": product_responses,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
