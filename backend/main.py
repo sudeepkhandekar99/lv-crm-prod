@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +17,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 import csv
 import requests
+
 
 app = FastAPI()
 
@@ -133,6 +134,37 @@ class ProductResponse(ProductBase):
 
 class ProductUpdate(ProductBase):
     pass
+
+class Category(Base):
+    __tablename__ = "category"
+
+    id = Column(Integer, primary_key=True, index=True)
+    main_category = Column(String(255), nullable=False)
+    display_name = Column(String(255), nullable=False)
+    priority = Column(Integer, nullable=False)
+    image_link = Column(Text, nullable=False)
+
+
+class CategoryBase(BaseModel):
+    main_category: str
+    display_name: str
+    priority: int
+    image_link: str
+
+class CategoryCreate(CategoryBase):
+    pass
+
+class CategoryUpdate(BaseModel):
+    main_category: Optional[str]
+    display_name: Optional[str]
+    priority: Optional[int]
+    image_link: Optional[str]
+
+class CategoryResponse(CategoryBase):
+    id: int
+
+    class Config:
+        from_attributes = True
 
 # API Endpoints
 @app.get("/products", response_model=List[ProductResponse])
@@ -555,4 +587,43 @@ def search_products(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+
+@app.post("/categories")
+def create_category(db: Session = Depends(get_db), category: CategoryCreate = None):
+    db_category = Category(**category.model_dump())
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return {"message": "Category created successfully", "category": db_category}
+
+@app.put("/categories/{category_id}")
+def update_category(db: Session = Depends(get_db), category_id: int = None, category: CategoryUpdate = None):
+    db_category = db.query(Category).filter(Category.id == category_id).first()
+    if not db_category:
+        return {"error": "Category not found"}
+    for key, value in category.model_dump(exclude_unset=True).items():
+        setattr(db_category, key, value)
+    db.commit()
+    db.refresh(db_category)
+    return {"message": "Category updated successfully", "category": db_category}
+
+@app.delete("/categories/{category_id}")
+def delete_category(db: Session = Depends(get_db), category_id: int = None):
+    db_category = db.query(Category).filter(Category.id == category_id).first()
+    if not db_category:
+        return {"error": "Category not found"}
+    db.delete(db_category)
+    db.commit()
+    return {"message": "Category deleted successfully"}
+
+@app.get("/categories/{category_id}")
+def get_category(db: Session = Depends(get_db), category_id: int = None):
+    db_category = db.query(Category).filter(Category.id == category_id).first()
+    if not db_category:
+        return {"error": "Category not found"}
+    return db_category
+
+@app.get("/categories")
+def get_all_categories(db: Session = Depends(get_db)):
+    return db.query(Category).all()
 
