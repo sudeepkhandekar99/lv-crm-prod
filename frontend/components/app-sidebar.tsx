@@ -33,6 +33,27 @@ const data = {
           isActive: false,
         },
         {
+          title: "All Brands",
+          url: "/brands",
+          isActive: false,
+        },
+        {
+          title: "All Categories",
+          url: "/categories",
+          isActive: false,
+        },
+        {
+          title: "All Sub-Categories",
+          url: "/sub-categories",
+          isActive: false,
+        },
+      ],
+    },
+    {
+      title: "Manage Media",
+      url: "#",
+      items: [
+        {
           title: "Upload File",
           url: "/upload-file",
           isActive: false,
