@@ -166,6 +166,28 @@ class CategoryResponse(CategoryBase):
     class Config:
         from_attributes = True
 
+
+class SubCategoryCreate(BaseModel):
+    subcat: str
+    display_name: str
+    priority: int
+    link: str
+
+class SubCategoryUpdate(BaseModel):
+    subcat: Optional[str]
+    display_name: Optional[str]
+    priority: Optional[int]
+    link: Optional[str]
+
+class SubCategory(Base):
+    __tablename__ = "sub_category"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subcat = Column(String(255), nullable=False)
+    display_name = Column(String(255), nullable=False)
+    priority = Column(Integer, nullable=False)
+    link = Column(Text, nullable=False)
+
 # API Endpoints
 @app.get("/products", response_model=List[ProductResponse])
 def get_all_products(
@@ -627,3 +649,62 @@ def get_category(db: Session = Depends(get_db), category_id: int = None):
 def get_all_categories(db: Session = Depends(get_db)):
     return db.query(Category).all()
 
+def create_subcategory(db: Session, subcategory: SubCategoryCreate):
+    db_subcategory = SubCategory(**subcategory.model_dump())
+    db.add(db_subcategory)
+    db.commit()
+    db.refresh(db_subcategory)
+    return db_subcategory
+
+def update_subcategory(db: Session, subcategory_id: int, subcategory: SubCategoryUpdate):
+    db_subcategory = db.query(SubCategory).filter(SubCategory.id == subcategory_id).first()
+    if not db_subcategory:
+        return None
+    for key, value in subcategory.model_dump(exclude_unset=True).items():
+        setattr(db_subcategory, key, value)
+    db.commit()
+    db.refresh(db_subcategory)
+    return db_subcategory
+
+def delete_subcategory(db: Session, subcategory_id: int):
+    db_subcategory = db.query(SubCategory).filter(SubCategory.id == subcategory_id).first()
+    if not db_subcategory:
+        return None
+    db.delete(db_subcategory)
+    db.commit()
+    return db_subcategory
+
+def get_subcategory(db: Session, subcategory_id: int):
+    return db.query(SubCategory).filter(SubCategory.id == subcategory_id).first()
+
+def get_all_subcategories(db: Session):
+    return db.query(SubCategory).all()
+
+@app.post("/subcategories")
+def create_new_subcategory(subcategory: SubCategoryCreate, db: Session = Depends(get_db)):
+    return create_subcategory(db, subcategory)
+
+@app.put("/subcategories/{subcategory_id}")
+def update_existing_subcategory(subcategory_id: int, subcategory: SubCategoryUpdate, db: Session = Depends(get_db)):
+    updated_subcategory = update_subcategory(db, subcategory_id, subcategory)
+    if not updated_subcategory:
+        raise HTTPException(status_code=404, detail="Subcategory not found")
+    return updated_subcategory
+
+@app.delete("/subcategories/{subcategory_id}")
+def delete_existing_subcategory(subcategory_id: int, db: Session = Depends(get_db)):
+    deleted_subcategory = delete_subcategory(db, subcategory_id)
+    if not deleted_subcategory:
+        raise HTTPException(status_code=404, detail="Subcategory not found")
+    return {"message": "Subcategory deleted successfully"}
+
+@app.get("/subcategories/{subcategory_id}")
+def read_subcategory(subcategory_id: int, db: Session = Depends(get_db)):
+    subcategory = get_subcategory(db, subcategory_id)
+    if not subcategory:
+        raise HTTPException(status_code=404, detail="Subcategory not found")
+    return subcategory
+
+@app.get("/subcategories")
+def read_all_subcategories(db: Session = Depends(get_db)):
+    return get_all_subcategories(db)
