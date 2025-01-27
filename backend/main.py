@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, File, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, Query, File, UploadFile, Path
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -708,3 +708,48 @@ def read_subcategory(subcategory_id: int, db: Session = Depends(get_db)):
 @app.get("/subcategories")
 def read_all_subcategories(db: Session = Depends(get_db)):
     return get_all_subcategories(db)
+
+
+@app.get("/products/distinct-sub-categories/{main_cat}")
+def get_distinct_sub_category_details(
+    main_cat: str = Path(..., description="The main category to filter subcategories"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the details of all subcategories in the `sub_category` table where
+    `subcat` matches the distinct `sub_cat` values filtered by `main_cat` from the `products` table.
+    """
+    try:
+        # Query distinct sub_cat values for the given main_cat from the `products` table
+        distinct_sub_cats = (
+            db.query(Product.sub_cat)
+            .filter(func.lower(Product.main_cat) == main_cat.lower())
+            .distinct()
+            .all()
+        )
+
+        # Flatten results to a simple list of strings
+        sub_cat_list = [item[0] for item in distinct_sub_cats if item[0] is not None]
+
+        # Query the `sub_category` table for matching subcategories
+        sub_category_details = (
+            db.query(SubCategory)
+            .filter(SubCategory.subcat.in_(sub_cat_list))
+            .all()
+        )
+
+        # Serialize results
+        result = [
+            {
+                "id": sub_category.id,
+                "subcat": sub_category.subcat,
+                "display_name": sub_category.display_name,
+                "priority": sub_category.priority,
+                "link": sub_category.link,
+            }
+            for sub_category in sub_category_details
+        ]
+
+        return {"main_category": main_cat, "sub_categories": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
