@@ -78,6 +78,29 @@ class Product(Base):
     pdf = Column(String(255), nullable=True)
 
 
+class Brand(Base):
+    __tablename__ = "brand"
+
+    id = Column(Integer, primary_key=True, index=True)
+    brand = Column(String(255), nullable=False)
+    display_name = Column(String(255), nullable=False)
+    priority = Column(Integer, nullable=False)
+    aws_link = Column(Text, nullable=False)
+
+
+class BrandCreate(BaseModel):
+    brand: str
+    display_name: str
+    priority: int
+    aws_link: str
+
+class BrandUpdate(BaseModel):
+    brand: Optional[str]
+    display_name: Optional[str]
+    priority: Optional[int]
+    aws_link: Optional[str]
+
+
 class ProductResponse(BaseModel):
     id: int
     code: Optional[str]
@@ -751,5 +774,134 @@ def get_distinct_sub_category_details(
         ]
 
         return {"main_category": main_cat, "sub_categories": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+def create_brand(db: Session, brand: BrandCreate):
+    db_brand = Brand(**brand.model_dump())
+    db.add(db_brand)
+    db.commit()
+    db.refresh(db_brand)
+    return db_brand
+
+def update_brand(db: Session, brand_id: int, brand: BrandUpdate):
+    db_brand = db.query(Brand).filter(Brand.id == brand_id).first()
+    if not db_brand:
+        return None
+    for key, value in brand.model_dump(exclude_unset=True).items():
+        setattr(db_brand, key, value)
+    db.commit()
+    db.refresh(db_brand)
+    return db_brand
+
+def delete_brand(db: Session, brand_id: int):
+    db_brand = db.query(Brand).filter(Brand.id == brand_id).first()
+    if not db_brand:
+        return None
+    db.delete(db_brand)
+    db.commit()
+    return db_brand
+
+def get_brand(db: Session, brand_id: int):
+    return db.query(Brand).filter(Brand.id == brand_id).first()
+
+def get_all_brands(db: Session):
+    return db.query(Brand).all()
+
+@app.post("/brands")
+def create_new_brand(brand: BrandCreate, db: Session = Depends(get_db)):
+    """
+    Create a new brand.
+    """
+    return create_brand(db, brand)
+
+@app.put("/brands/{brand_id}")
+def update_existing_brand(brand_id: int, brand: BrandUpdate, db: Session = Depends(get_db)):
+    """
+    Update an existing brand by ID.
+    """
+    updated_brand = update_brand(db, brand_id, brand)
+    if not updated_brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    return updated_brand
+
+@app.delete("/brands/{brand_id}")
+def delete_existing_brand(brand_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a brand by ID.
+    """
+    deleted_brand = delete_brand(db, brand_id)
+    if not deleted_brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    return {"message": "Brand deleted successfully"}
+
+@app.get("/brands/{brand_id}")
+def read_brand(brand_id: int, db: Session = Depends(get_db)):
+    """
+    Get a single brand by ID.
+    """
+    brand = get_brand(db, brand_id)
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    return brand
+
+@app.get("/brands")
+def read_all_brands(db: Session = Depends(get_db)):
+    """
+    Get all brands.
+    """
+    return get_all_brands(db)
+
+
+@app.get("/products/unique_brands/{main_cat}/{sub_cat}")
+def get_brands_by_main_cat_and_sub_cat(
+    main_cat: str = Path(..., description="Main category to filter products"),
+    sub_cat: str = Path(..., description="Subcategory to filter products"),
+    db: Session = Depends(get_db),
+):
+    """
+    Query the products table by main_cat and sub_cat to retrieve all distinct brands
+    and match them with brand details from the brand table.
+    """
+    try:
+        # Step 1: Query distinct brands from the products table
+        distinct_brands = (
+            db.query(Product.brand)
+            .filter(func.lower(Product.main_cat) == main_cat.lower())
+            .filter(func.lower(Product.sub_cat) == sub_cat.lower())
+            .distinct()
+            .all()
+        )
+
+        print(distinct_brands)
+
+        # Flatten the result to a simple list of brand names
+        brand_names = [item[0] for item in distinct_brands if item[0] is not None]
+
+        # Step 2: Query the brand table to get details for the matched brands
+        brand_details = (
+            db.query(Brand)
+            .filter(Brand.brand.in_(brand_names))
+            .all()
+        )
+
+        # Serialize the brand details
+        result = [
+            {
+                "id": brand.id,
+                "brand": brand.brand,
+                "display_name": brand.display_name,
+                "priority": brand.priority,
+                "aws_link": brand.aws_link,
+            }
+            for brand in brand_details
+        ]
+
+        return {
+            "main_category": main_cat,
+            "sub_category": sub_cat,
+            "brands": result,
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
