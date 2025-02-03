@@ -88,6 +88,30 @@ class Brand(Base):
     aws_link = Column(Text, nullable=False)
 
 
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    main_title = Column(String(255), nullable=False)
+    location = Column(String(255), nullable=False)
+    subheading = Column(String(255), nullable=False)
+    summary = Column(Text, nullable=False)
+    image_link = Column(Text, nullable=False)
+
+class ProjectCreate(BaseModel):
+    main_title: str
+    location: str
+    subheading: str
+    summary: str
+    image_link: str
+
+class ProjectUpdate(BaseModel):
+    main_title: Optional[str]
+    location: Optional[str]
+    subheading: Optional[str]
+    summary: Optional[str]
+    image_link: Optional[str]
+
 class BrandCreate(BaseModel):
     brand: str
     display_name: str
@@ -905,3 +929,78 @@ def get_brands_by_main_cat_and_sub_cat(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
+def create_project(db: Session, project: ProjectCreate):
+    db_project = Project(**project.model_dump())
+    db.add(db_project)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+def update_project(db: Session, project_id: int, project: ProjectUpdate):
+    db_project = db.query(Project).filter(Project.id == project_id).first()
+    if not db_project:
+        return None
+    for key, value in project.model_dump(exclude_unset=True).items():
+        setattr(db_project, key, value)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+def delete_project(db: Session, project_id: int):
+    db_project = db.query(Project).filter(Project.id == project_id).first()
+    if not db_project:
+        return None
+    db.delete(db_project)
+    db.commit()
+    return db_project
+
+def get_project(db: Session, project_id: int):
+    return db.query(Project).filter(Project.id == project_id).first()
+
+def get_all_projects(db: Session):
+    return db.query(Project).all()
+
+@app.post("/projects")
+def create_new_project(project: ProjectCreate, db: Session = Depends(get_db)):
+    """
+    Create a new project.
+    """
+    return create_project(db, project)
+
+@app.put("/projects/{project_id}")
+def update_existing_project(project_id: int, project: ProjectUpdate, db: Session = Depends(get_db)):
+    """
+    Update an existing project by ID.
+    """
+    updated_project = update_project(db, project_id, project)
+    if not updated_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return updated_project
+
+@app.delete("/projects/{project_id}")
+def delete_existing_project(project_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a project by ID.
+    """
+    deleted_project = delete_project(db, project_id)
+    if not deleted_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"message": "Project deleted successfully"}
+
+@app.get("/projects/{project_id}")
+def read_project(project_id: int, db: Session = Depends(get_db)):
+    """
+    Get a single project by ID.
+    """
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+@app.get("/projects")
+def read_all_projects(db: Session = Depends(get_db)):
+    """
+    Get all projects.
+    """
+    return get_all_projects(db)
