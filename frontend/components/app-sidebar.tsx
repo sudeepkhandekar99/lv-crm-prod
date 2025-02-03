@@ -50,9 +50,19 @@ const data = {
       ],
     },
     {
-      title: "Manage Media",
+      title: "Manage Content",
       url: "#",
       items: [
+        {
+          title: "All Projects",
+          url: "/projects",
+          isActive: false,
+        },
+        {
+          title: "Add Project",
+          url: "/add-project",
+          isActive: false,
+        },
         {
           title: "Upload File",
           url: "/upload-file",
