@@ -390,7 +390,7 @@ def search_products(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@app.get("/search-by-model", response_model=ProductResponse)
+@app.get("/search-by-model", response_model=List[ProductResponse])
 def search_by_model(
     model: str,
     db: Session = Depends(get_db),
@@ -400,7 +400,7 @@ def search_by_model(
     """
     try:
         # Query the database for the first product matching the model
-        product = db.query(Product).filter(Product.model == model).first()
+        product = db.query(Product).filter(Product.model.ilike(f"%{model}%")).all()
 
         # Handle the case where no product is found
         if not product:
