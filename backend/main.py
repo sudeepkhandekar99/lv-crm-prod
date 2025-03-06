@@ -612,29 +612,41 @@ def search_products(
         # Apply dynamic filters
         filters = []
         if code:
-            filters.append(func.lower(Product.code).like(f"%{code.lower()}%"))
+            code = code.strip()
+            filters.append(func.lower(Product.code).ilike(f"%{code.lower()}%"))
         if main_cat:
-            filters.append(func.lower(Product.main_cat).like(f"%{main_cat.lower()}%"))
+            main_cat = main_cat.strip()
+            filters.append(func.lower(Product.main_cat).ilike(f"%{main_cat.lower()}%"))
         if sub_cat:
-            filters.append(func.lower(Product.sub_cat).like(f"%{sub_cat.lower()}%"))
+            sub_cat = sub_cat.strip()
+            filters.append(func.lower(Product.sub_cat).ilike(f"%{sub_cat.lower()}%"))
         if brand:
-            filters.append(func.lower(Product.brand).like(f"%{brand.lower()}%"))
+            brand = brand.strip()
+            filters.append(func.lower(Product.brand).ilike(f"%{brand.lower()}%"))
         if model:
-            filters.append(func.lower(Product.model).like(f"%{model.lower()}%"))
+            model = model.strip()
+            filters.append(func.lower(Product.model).ilike(f"%{model.lower()}%"))
         if housing_size:
-            filters.append(func.lower(Product.housing_size).like(f"%{housing_size.lower()}%"))
+            housing_size = housing_size.strip()
+            filters.append(func.lower(Product.housing_size).ilike(f"%{housing_size.lower()}%"))
         if function:
-            filters.append(func.lower(Product.function).like(f"%{function.lower()}%"))
+            function = function.strip()
+            filters.append(func.lower(Product.function).ilike(f"%{function.lower()}%"))
         if range:
-            filters.append(func.lower(Product.range).like(f"%{range.lower()}%"))
+            range = range.strip()
+            filters.append(func.lower(Product.range).ilike(f"%{range.lower()}%"))
         if output:
-            filters.append(func.lower(Product.output).like(f"%{output.lower()}%"))
+            output = output.strip()
+            filters.append(func.lower(Product.output).ilike(f"%{output.lower()}%"))
         if voltage:
-            filters.append(func.lower(Product.voltage).like(f"%{voltage.lower()}%"))
+            voltage = voltage.strip()
+            filters.append(func.lower(Product.voltage).ilike(f"%{voltage.lower()}%"))
         if connection:
-            filters.append(func.lower(Product.connection).like(f"%{connection.lower()}%"))
+            connection = connection.strip()
+            filters.append(func.lower(Product.connection).ilike(f"%{connection.lower()}%"))
         if material:
-            filters.append(func.lower(Product.material).like(f"%{material.lower()}%"))
+            material = material.strip()
+            filters.append(func.lower(Product.material).ilike(f"%{material.lower()}%"))
 
         if filters:
             query = query.filter(and_(*filters))
