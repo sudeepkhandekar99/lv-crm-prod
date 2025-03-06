@@ -898,29 +898,30 @@ def get_brands_by_main_cat_and_sub_cat(
             .all()
         )
 
-        print(distinct_brands)
-
         # Flatten the result to a simple list of brand names
         brand_names = [item[0] for item in distinct_brands if item[0] is not None]
 
         # Step 2: Query the brand table to get details for the matched brands
-        brand_details = (
-            db.query(Brand)
-            .filter(Brand.brand.in_(brand_names))
-            .all()
-        )
+        if brand_names:
+            brand_details = (
+                db.query(Brand)
+                .filter(or_(*[Brand.brand.like(f"%{name}%") for name in brand_names]))
+                .all()
+            )
 
-        # Serialize the brand details
-        result = [
-            {
-                "id": brand.id,
-                "brand": brand.brand,
-                "display_name": brand.display_name,
-                "priority": brand.priority,
-                "aws_link": brand.aws_link,
-            }
-            for brand in brand_details
-        ]
+            # Serialize the brand details
+            result = [
+                {
+                    "id": brand.id,
+                    "brand": brand.brand,
+                    "display_name": brand.display_name,
+                    "priority": brand.priority,
+                    "aws_link": brand.aws_link,
+                }
+                for brand in brand_details
+            ]
+        else:
+            result = []
 
         return {
             "main_category": main_cat,
