@@ -1017,3 +1017,99 @@ def read_all_projects(db: Session = Depends(get_db)):
     Get all projects.
     """
     return get_all_projects(db)
+
+
+# client model
+class Client(Base):
+    __tablename__ = "clients"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    link = Column(Text, nullable=False)
+    priority = Column(Integer, nullable=False, default=1)
+
+
+# client request and response schemas
+class ClientBase(BaseModel):
+    name: str
+    link: str
+    priority: Optional[int] = 1  # Default value is 1
+
+class ClientCreate(ClientBase):
+    pass  # Used for creating new clients
+
+class ClientUpdate(BaseModel):
+    name: Optional[str]
+    link: Optional[str]
+    priority: Optional[int]
+
+class ClientResponse(ClientBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# client apis
+@app.get("/clients", response_model=List[ClientResponse])
+def get_all_clients(db: Session = Depends(get_db)):
+    """
+    Retrieve all clients.
+    """
+    clients = db.query(Client).order_by(asc(Client.priority)).all()
+    return clients
+
+@app.get("/clients/{client_id}", response_model=ClientResponse)
+def get_client_by_id(client_id: int, db: Session = Depends(get_db)):
+    """
+    Retrieve a single client by ID.
+    """
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return client
+
+@app.put("/clients/{client_id}", response_model=ClientResponse)
+def update_client_by_id(client_id: int, client_update: ClientUpdate, db: Session = Depends(get_db)):
+    """
+    Update an existing client by ID.
+    """
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    for key, value in client_update.dict(exclude_unset=True).items():
+        setattr(client, key, value)
+
+    db.commit()
+    db.refresh(client)
+    return client
+
+@app.delete("/clients/{client_id}")
+def delete_client_by_id(client_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a client by ID.
+    """
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    db.delete(client)
+    db.commit()
+    return {"message": "Client deleted successfully"}
+
+@app.post("/clients", response_model=ClientResponse)
+def create_client(client: ClientCreate, db: Session = Depends(get_db)):
+    """
+    Create a new client.
+    """
+    new_client = Client(
+        name=client.name,
+        link=client.link,
+        priority=client.priority
+    )
+
+    db.add(new_client)
+    db.commit()
+    db.refresh(new_client)
+
+    return new_client
