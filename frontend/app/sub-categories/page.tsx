@@ -198,7 +198,7 @@ export default function ManageSubcategories() {
                                         </Dialog>
                                         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                                             <DialogTrigger asChild>
-                                                <Button variant="destructive" onClick={() => { setDeleteId(subcategory.id!); setIsDeleteDialogOpen(true); }}>Delete</Button>
+                                                <Button className="mx-3" variant="destructive" onClick={() => { setDeleteId(subcategory.id!); setIsDeleteDialogOpen(true); }}>Delete</Button>
                                             </DialogTrigger>
                                             <DialogContent>
                                                 <DialogHeader>

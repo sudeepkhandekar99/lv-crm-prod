@@ -47,6 +47,11 @@ const data = {
           url: "/sub-categories",
           isActive: false,
         },
+        {
+          title: "All Clients",
+          url: "/clients",
+          isActive: false,
+        },
       ],
     },
     {
